@@ -1,1 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" fill="#2f6f62"/><path d="M256 150c-40-24-88-30-130-18v226c42-12 90-6 130 18z" fill="#eceee8"/><path d="M256 150c40-24 88-30 130-18v226c-42-12-90-6-130 18z" fill="#cfe0da"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#183a34"/>
+  <rect x="24" y="24" width="464" height="464" rx="92" fill="none" stroke="#c8a96e" stroke-opacity="0.35" stroke-width="4"/>
+  <!-- Left page -->
+  <path d="M256 154 C216 134, 158 132, 114 148 L114 358 C158 342, 216 344, 256 366 Z" fill="#f4f2ec"/>
+  <!-- Right page -->
+  <path d="M256 154 C296 134, 354 132, 398 148 L398 358 C354 342, 296 344, 256 366 Z" fill="#dfe6e1"/>
+  <!-- Spine shadow -->
+  <line x1="256" y1="154" x2="256" y2="366" stroke="#9eb0a8" stroke-width="3"/>
+  <!-- Gold bookmark ribbon -->
+  <path d="M312 139 L342 139 L342 238 L327 224 L312 238 Z" fill="#d4af63"/>
+</svg>
