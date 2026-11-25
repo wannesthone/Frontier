@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en" data-theme="paper">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Frontier Reader</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#eceee8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Reader">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon.svg">
+<style>
+:root{--bg:#eceee8;--fg:#1d2420;--mut:#66726c;--acc:#2f6f62;--card:#e1e5de;--line:#cdd3ca;--fs:19px;--ff:Georgia,"Iowan Old Style","Palatino Linotype",serif}
+[data-theme=dark]{--bg:#14181a;--fg:#cdd5d0;--mut:#7d8a85;--acc:#6fb7a5;--card:#1d2326;--line:#2b3438}
+[data-theme=sepia]{--bg:#e8dcc2;--fg:#3a2f20;--mut:#85734f;--acc:#7a4a2c;--card:#dccfb0;--line:#c9b996}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;overscroll-behavior:none}
+button,input,textarea{font:inherit;color:inherit}
+button{background:none;border:0;cursor:pointer;text-align:left}
+.view{position:fixed;inset:0;overflow:auto;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+.wrap{max-width:640px;margin:0 auto;padding:20px 20px 60px}
+header.top{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+header.top h1{font:600 26px/1.1 var(--ff);margin:0;flex:1;letter-spacing:-.01em}
+.ib{padding:8px 12px;border:1px solid var(--line);border-radius:8px;color:var(--fg)}
+.pri{background:var(--acc);color:var(--bg);padding:12px 16px;border-radius:8px;font-weight:600;text-align:center;display:block;width:100%}
+.row{display:block;width:100%;padding:16px 0;border-bottom:1px solid var(--line)}
+.row b{display:block;font:600 18px/1.3 var(--ff)}
+.row .sub{display:block;color:var(--mut);font-size:14px;margin-top:2px}
+.row.read b{color:var(--mut);font-weight:400}.row.cur b{color:var(--acc)}
+.meter{height:3px;background:var(--line);margin-top:10px;border-radius:2px;overflow:hidden}.meter i{display:block;height:100%;background:var(--acc)}
+.empty{color:var(--mut);padding:30px 0}
+details{margin:18px 0;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+summary{cursor:pointer;font-weight:600}
+textarea,input[type=text]{width:100%;margin:10px 0 6px;padding:10px;background:var(--card);border:1px solid var(--line);border-radius:8px}
+textarea{min-height:90px;resize:vertical}
+.stat{color:var(--mut);font-size:14px;min-height:20px;margin:8px 0 0}
+.link{color:var(--mut);text-decoration:underline;padding:12px 0}
+/* reader */
+#read{background:var(--bg);overflow:hidden;padding:0}
+#bar,#foot{position:absolute;left:0;right:0;z-index:3;display:flex;align-items:center;gap:10px;padding:0 14px;background:var(--bg);transition:opacity .2s}
+#bar{top:0;height:calc(48px + env(safe-area-inset-top));padding-top:env(safe-area-inset-top)}
+#bar .t{flex:1;text-align:center;color:var(--mut);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#foot{bottom:0;height:calc(34px + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);font-size:13px;color:var(--mut)}
+#foot .meter{flex:1;margin:0}
+#read.hide #bar{opacity:0;pointer-events:none}
+#stage{position:absolute;left:0;right:0;top:calc(48px + env(safe-area-inset-top));bottom:calc(34px + env(safe-area-inset-bottom));overflow:hidden;touch-action:pan-y}
+#vp{margin:12px auto 0;overflow:hidden}
+#txt{font:var(--fs)/1.65 var(--ff);transition:transform .25s ease;column-fill:auto;hyphens:auto;-webkit-hyphens:auto}
+#txt h2{font:600 1.3em/1.3 var(--ff);margin:0 0 1.2em;text-align:center}
+#txt p{margin:0;text-indent:1.5em;text-align:justify;orphans:2;widows:2}
+#txt p.br{text-indent:0;text-align:center;margin:1em 0;color:var(--mut)}
+@media(prefers-reduced-motion:reduce){#txt{transition:none}}
+/* sheet */
+#sheet{position:fixed;left:0;right:0;bottom:0;z-index:10;background:var(--bg);border-top:1px solid var(--line);padding:18px 20px calc(18px + env(safe-area-inset-bottom));max-height:80vh;overflow:auto;box-shadow:0 -8px 30px rgba(0,0,0,.15)}
+#sheet .g{display:flex;gap:8px;align-items:center;margin:0 0 14px;flex-wrap:wrap}
+#sheet .g>span{width:70px;color:var(--mut);font-size:14px}
+#sheet .ib.on{border-color:var(--acc);color:var(--acc);font-weight:600}
+</style>
+</head>
+<body>
+
+<section id="lib" class="view"><div class="wrap">
+  <header class="top"><h1>Library</h1><button class="ib" id="gear1">Settings</button></header>
+  <div id="list"></div>
+  <button class="pri" id="newbook">New book</button>
+</div></section>
+
+<section id="book" class="view" hidden><div class="wrap">
+  <header class="top"><button class="ib" id="back1">Library</button><h1 id="bt"></h1></header>
+  <button class="pri" id="cont"></button>
+  <details id="add">
+    <summary>Add chapters</summary>
+    <p class="stat">From links: one chapter URL per line, in reading order.</p>
+    <textarea id="urls" placeholder="https://..."></textarea>
+    <button class="ib" id="fetchBtn">Fetch chapters</button>
+    <p class="stat">From text: paste a chapter you copied.</p>
+    <input type="text" id="ptitle" placeholder="Chapter title">
+    <textarea id="ptext" placeholder="Paste chapter text"></textarea>
+    <button class="ib" id="pasteBtn">Add text</button>
+    <p class="stat">From files: .txt or saved .html pages.</p>
+    <input type="file" id="files" accept=".txt,.html,.htm" multiple>
+    <p class="stat" id="stat"></p>
+  </details>
+  <div id="chs"></div>
+  <button class="link" id="delbook">Delete this book</button>
+</div></section>
+
+<section id="read" class="view" hidden>
+  <div id="bar"><button class="ib" id="back2">Chapters</button><span class="t" id="ct"></span><button class="ib" id="gear2">Aa</button></div>
+  <div id="stage"><div id="vp"><div id="txt"></div></div></div>
+  <div id="foot"><span id="pg"></span><div class="meter"><i id="pb" style="width:0"></i></div><span id="pc"></span></div>
+</section>
+
+<div id="sheet" hidden>
+  <div class="g"><span>Size</span><button class="ib" id="sm">A−</button><button class="ib" id="lg">A+</button></div>
+  <div class="g"><span>Theme</span><button class="ib" data-th="paper">Paper</button><button class="ib" data-th="sepia">Sepia</button><button class="ib" data-th="dark">Dark</button></div>
+  <div class="g"><span>Font</span><button class="ib" data-ft="serif">Serif</button><button class="ib" data-ft="sans">Sans</button></div>
+  <div class="g"><span>Proxy</span><input type="text" id="proxy" style="margin:0;flex:1;min-width:200px"></div>
+  <div class="g"><span>Backup</span><button class="ib" id="exp">Export</button><label class="ib">Import<input type="file" id="imp" accept=".json" hidden></label></div>
+  <button class="pri" id="close">Done</button>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+/* storage: library in IndexedDB, progress + settings in localStorage */
+const db=new Promise((ok,no)=>{const r=indexedDB.open('reader',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)});
+const kvGet=async k=>{const d=await db;return new Promise(r=>{const q=d.transaction('kv').objectStore('kv').get(k);q.onsuccess=()=>r(q.result)})};
+const kvSet=async(k,v)=>{const d=await db;return new Promise(r=>{const t=d.transaction('kv','readwrite');t.objectStore('kv').put(v,k);t.oncomplete=r})};
+let books=[],prog=JSON.parse(localStorage.prog||'{}');
+let cfg=Object.assign({size:19,theme:'paper',font:'serif',proxy:'https://api.allorigins.win/raw?url='},JSON.parse(localStorage.cfg||'{}'));
+const saveBooks=()=>kvSet('books',books),saveProg=()=>localStorage.prog=JSON.stringify(prog),saveCfg=()=>localStorage.cfg=JSON.stringify(cfg);
+
+/* views */
+const views=['lib','book','read'];let B=null,cur='lib';
+function show(v){cur=v;views.forEach(x=>$('#'+x).hidden=x!==v)}
+function applyCfg(){
+  document.documentElement.dataset.theme=cfg.theme;
+  const r=document.documentElement.style;
+  r.setProperty('--fs',cfg.size+'px');
+  r.setProperty('--ff',cfg.font==='sans'?'system-ui,-apple-system,"Segoe UI",sans-serif':'Georgia,"Iowan Old Style","Palatino Linotype",serif');
+  document.querySelector('meta[name=theme-color]').content=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+  document.querySelectorAll('[data-th]').forEach(b=>b.classList.toggle('on',b.dataset.th===cfg.theme));
+  document.querySelectorAll('[data-ft]').forEach(b=>b.classList.toggle('on',b.dataset.ft===cfg.font));
+  $('#proxy').value=cfg.proxy;
+}
+const pct=b=>{const p=prog[b.id]||{ch:0,frac:0};return b.ch.length?clamp((p.ch+p.frac)/b.ch.length,0,1):0};
+
+/* library */
+function renderLib(){
+  const L=$('#list');L.replaceChildren();
+  if(!books.length)L.append(el('p','empty','No books yet. Create one, then add chapters from links, pasted text or files.'));
+  books.forEach(b=>{
+    const p=prog[b.id]||{ch:0},r=el('button','row');
+    r.append(el('b','',b.title),el('span','sub',b.ch.length?`Chapter ${Math.min(p.ch+1,b.ch.length)} of ${b.ch.length}, ${Math.round(pct(b)*100)}% read`:'No chapters yet'));
+    const m=el('div','meter'),i=el('i');i.style.width=pct(b)*100+'%';m.append(i);r.append(m);
+    r.onclick=()=>{B=b;renderBook();show('book')};L.append(r);
+  });
+}
+$('#newbook').onclick=async()=>{
+  const t=prompt('Book title','Shangri-La Frontier');if(!t)return;
+  books.push({id:Date.now().toString(36),title:t.trim(),ch:[]});await saveBooks();renderLib();
+};
+
+/* book page */
+function renderBook(){
+  $('#bt').textContent=B.title;
+  const p=prog[B.id]||{ch:0,frac:0},started=p.ch>0||p.frac>.01;
+  $('#cont').hidden=!B.ch.length;
+  $('#cont').textContent=started?`Continue chapter ${p.ch+1}`:'Start reading';
+  $('#add').open=!B.ch.length;
+  const C=$('#chs');C.replaceChildren();
+  B.ch.forEach((c,i)=>{
+    const r=el('button','row'+(i<p.ch?' read':i===p.ch&&started?' cur':''));
+    r.append(el('b','',c.t));r.onclick=()=>openRead(i,i===p.ch?p.frac:0);C.append(r);
+  });
+}
+$('#cont').onclick=()=>{const p=prog[B.id]||{ch:0,frac:0};openRead(clamp(p.ch,0,B.ch.length-1),p.frac)};
+$('#back1').onclick=()=>{renderLib();show('lib')};
+$('#delbook').onclick=async()=>{if(!confirm(`Delete "${B.title}" and its progress?`))return;books=books.filter(b=>b!==B);delete prog[B.id];saveProg();await saveBooks();renderLib();show('lib')};
+
+/* getting chapter text */
+const stat=t=>$('#stat').textContent=t;
+function extract(html,fallbackTitle){
+  const d=new DOMParser().parseFromString(html,'text/html');
+  d.querySelectorAll('script,style,nav,header,footer,aside,form,iframe,noscript,#comments,.comments').forEach(e=>e.remove());
+  let best=null,n=0;
+  d.querySelectorAll('div,article,section,main,body').forEach(e=>{const c=[...e.children].filter(x=>x.tagName==='P').length;if(c>n){n=c;best=e}});
+  if(!best)throw new Error('no text found');
+  const x=[...best.querySelectorAll('p')].map(p=>p.textContent.replace(/\s+/g,' ').trim()).filter(Boolean).join('\n');
+  const h=d.querySelector('h1,h2.entry-title,.entry-title');
+  let t=(h&&h.textContent.trim())||(d.title||'').split(/\s[|–—-]\s/)[0].trim()||fallbackTitle;
+  if(x.length<200)throw new Error('no text found');
+  return{t,x};
+}
+async function grab(url){
+  const r=await fetch(cfg.proxy+encodeURIComponent(url));
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  return{...extract(await r.text(),url),u:url};
+}
+$('#fetchBtn').onclick=async()=>{
+  const urls=$('#urls').value.split(/\s+/).filter(Boolean);
+  for(let i=0;i<urls.length;i++){
+    stat(`Fetching ${i+1} of ${urls.length}…`);
+    try{B.ch.push(await grab(urls[i]));await saveBooks();renderBook()}
+    catch(e){stat(`Could not load ${urls[i]}: ${e.message}. Try another proxy in Settings, or paste the text instead.`);return}
+  }
+  stat(`Added ${urls.length} chapter${urls.length>1?'s':''}.`);$('#urls').value='';
+};
+$('#pasteBtn').onclick=async()=>{
+  const x=$('#ptext').value.trim();if(x.length<50)return stat('Paste the chapter text first.');
+  B.ch.push({t:$('#ptitle').value.trim()||`Chapter ${B.ch.length+1}`,x});
+  await saveBooks();renderBook();$('#ptext').value='';$('#ptitle').value='';stat('Chapter added.');
+};
+$('#files').onchange=async e=>{
+  for(const f of e.target.files){
+    const s=await f.text(),name=f.name.replace(/\.\w+$/,'');
+    try{B.ch.push(/\.html?$/i.test(f.name)?extract(s,name):{t:name,x:s.trim()})}catch(err){stat(`${f.name}: ${err.message}`)}
+  }
+  await saveBooks();renderBook();e.target.value='';stat('Files added.');
+};
+
+/* reader: CSS columns give real pages, position is saved as a fraction so it survives resizing */
+const R={ch:0,pages:1,page:0,vw:0,gap:40};
+function openRead(ch,frac){R.ch=ch;show('read');$('#read').classList.remove('hide');load(frac)}
+function load(frac){
+  const c=B.ch[R.ch],t=$('#txt');t.replaceChildren(el('h2','',c.t));
+  c.x.split(/\n+/).forEach(s=>{s=s.trim();if(!s)return;const p=el('p','',s);if(/^[\*\-–—=#~・＊\s]{3,}$/.test(s))p.className='br';t.append(p)});
+  $('#ct').textContent=`${R.ch+1}. ${c.t}`;
+  layout(frac);
+}
+function layout(frac){
+  const st=$('#stage'),t=$('#txt'),pad=clamp(st.clientWidth*.07,18,48);
+  R.vw=Math.floor(Math.min(st.clientWidth-2*pad,680));
+  const h=st.clientHeight-24;
+  $('#vp').style.cssText=`width:${R.vw}px;height:${h}px`;
+  t.style.cssText=`width:${R.vw}px;height:${h}px;column-width:${R.vw}px;column-gap:${R.gap}px;transition:none`;
+  R.pages=Math.max(1,Math.round((t.scrollWidth+R.gap)/(R.vw+R.gap)));
+  go(Math.round(frac*(R.pages-1)));
+  requestAnimationFrame(()=>t.style.transition='');
+}
+function go(p){
+  R.page=clamp(p,0,R.pages-1);
+  $('#txt').style.transform=`translateX(${-R.page*(R.vw+R.gap)}px)`;
+  const f=R.pages>1?R.page/(R.pages-1):0;
+  $('#pg').textContent=`Page ${R.page+1} of ${R.pages}`;
+  const total=(R.ch+f)/B.ch.length;
+  $('#pb').style.width=f*100+'%';$('#pc').textContent=Math.round(total*100)+'%';
+  prog[B.id]={ch:R.ch,frac:f};saveProg();
+}
+const frac=()=>R.pages>1?R.page/(R.pages-1):0;
+function next(){if(R.page<R.pages-1)go(R.page+1);else if(R.ch<B.ch.length-1){R.ch++;load(0)}else $('#pg').textContent='End of book'}
+function prev(){if(R.page>0)go(R.page-1);else if(R.ch>0){R.ch--;load(1)}}
+let sx=0,sy=0,swiped=false;
+const stage=$('#stage');
+stage.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;swiped=false},{passive:true});
+stage.addEventListener('touchend',e=>{
+  const dx=e.changedTouches[0].clientX-sx,dy=e.changedTouches[0].clientY-sy;
+  if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy)){swiped=true;dx<0?next():prev()}
+},{passive:true});
+stage.addEventListener('click',e=>{
+  if(swiped){swiped=false;return}
+  const x=e.clientX/innerWidth;
+  if(x<.3)prev();else if(x>.7)next();else $('#read').classList.toggle('hide');
+});
+addEventListener('keydown',e=>{
+  if(cur!=='read')return;
+  if(e.key==='ArrowRight'||e.key===' ')next();else if(e.key==='ArrowLeft')prev();else if(e.key==='Escape')$('#back2').click();
+});
+let rz;addEventListener('resize',()=>{if(cur!=='read')return;clearTimeout(rz);rz=setTimeout(()=>layout(frac()),150)});
+$('#back2').onclick=()=>{renderBook();show('book')};
+
+/* settings */
+const openSheet=()=>$('#sheet').hidden=false;
+$('#gear1').onclick=$('#gear2').onclick=openSheet;
+$('#close').onclick=()=>{$('#sheet').hidden=true;cfg.proxy=$('#proxy').value.trim()||cfg.proxy;saveCfg()};
+const changed=()=>{applyCfg();saveCfg();if(cur==='read')layout(frac())};
+$('#sm').onclick=()=>{cfg.size=clamp(cfg.size-1,14,30);changed()};
+$('#lg').onclick=()=>{cfg.size=clamp(cfg.size+1,14,30);changed()};
+document.querySelectorAll('[data-th]').forEach(b=>b.onclick=()=>{cfg.theme=b.dataset.th;changed()});
+document.querySelectorAll('[data-ft]').forEach(b=>b.onclick=()=>{cfg.font=b.dataset.ft;changed()});
+$('#exp').onclick=()=>{
+  const a=el('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({books,prog})],{type:'application/json'}));
+  a.download='frontier-reader-backup.json';a.click();
+};
+$('#imp').onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{const d=JSON.parse(await f.text());
+    if(!confirm('Replace the library and progress on this device with the backup?'))return;
+    books=d.books||[];prog=d.prog||{};await saveBooks();saveProg();renderLib();show('lib');$('#sheet').hidden=true;
+  }catch{alert('That file is not a valid backup.')}
+  e.target.value='';
+};
+
+/* start */
+(async()=>{
+  applyCfg();
+  books=(await kvGet('books'))||[];
+  renderLib();
+  if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
+  if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');
+})();
+</script>
+</body>
+</html>
